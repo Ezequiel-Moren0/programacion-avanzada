@@ -5,36 +5,34 @@ import java.net.*;
 import java.util.Scanner;
 
 public class Cliente {
-
     public static void main(String[] args) {
-        try {
-            Socket sc = new Socket("127.0.0.1", 5000);
-            DataInputStream in = new DataInputStream(sc.getInputStream());
-            DataOutputStream out = new DataOutputStream(sc.getOutputStream());
-            Scanner scanner = new Scanner(System.in);
+        String host = "localhost";
+        int puerto = 5000;
+     
+        try (Socket socket = new Socket(host, puerto);
+             DataInputStream in = new DataInputStream(socket.getInputStream());
+             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+             Scanner scanner = new Scanner(System.in)) {
 
-            System.out.println(in.readUTF()); // pedir nombre
+            System.out.print("Ingrese su nombre: ");
             String nombre = scanner.nextLine();
-            out.writeUTF(nombre);
+            out.writeUTF(nombre);  // Se espera que el servidor reciba este nombre
 
-            Thread recibir = new Thread(() -> {
-                try {
-                    while (true) {
-                        System.out.println(">> " + in.readUTF());
-                    }
-                } catch (IOException e) {
-                    System.out.println("Desconectado.");
-                }
-            });
-            recibir.start();
+            ClienteHilo hiloRecepcion = new ClienteHilo(in, out);
+            hiloRecepcion.start();
 
+            // Bucle para enviar datos al servidor
             while (true) {
-                String mensaje = scanner.nextLine();
-                out.writeUTF(mensaje);
+                String entrada = scanner.nextLine();
+                out.writeUTF(entrada);
+
+                if (entrada.equals("3")) {
+                    break;
+                }
             }
 
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("Error de conexión: " + e.getMessage());
         }
     }
 }
