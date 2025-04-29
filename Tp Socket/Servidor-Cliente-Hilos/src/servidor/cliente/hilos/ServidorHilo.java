@@ -20,58 +20,104 @@ public class ServidorHilo extends Thread {
     }
 
     @Override
-    public void run() {
-        try {
-            out.writeUTF("Bienvenido " + nombre + ", escribe tu mensaje:");
-            while (true) {
-                String mensaje = in.readUTF();
-                System.out.println("[" + nombre + "]: " + mensaje);
+public void run() {
+    try {
+        out.writeUTF("Bienvenido " + nombre + "!");
 
-                if (mensaje.startsWith("RESOLVE")) {
-                    String operacion = mensaje.substring(7).trim();
+        while (true) {
+            mostrarMenu();
+
+            String opcion = in.readUTF();
+
+            switch (opcion) {
+                case "1":
+                    out.writeUTF("Escribe la operación matemática (ej: 45*23/54+234):");
+                    String operacion = in.readUTF();
                     String resultado = resolverOperacion(operacion);
                     out.writeUTF("Resultado: " + resultado);
-                } else if (mensaje.startsWith("*ALL")) {
-                    enviarATodos("[" + nombre + "]: " + mensaje.substring(4).trim());
-                } else if (mensaje.startsWith("*")) {
-                    int espacio = mensaje.indexOf(" ");
-                    if (espacio > 1) {
-                        String destino = mensaje.substring(1, espacio);
-                        String texto = mensaje.substring(espacio + 1);
-                        enviarAPersona(destino, "[" + nombre + "]: " + texto);
+                    break;
+
+                case "2":
+                    mostrarSubMenuMensajes();
+                    String subopcion = in.readUTF();
+
+                    if (subopcion.equalsIgnoreCase("ALL")) {
+                        out.writeUTF("Escribe el mensaje para TODOS:");
+                        String mensajeAll = in.readUTF();
+                        enviarATodos("[" + nombre + "]: " + mensajeAll);
+                    } else {
+                        String nombreDestino = subopcion;
+                        out.writeUTF("Escribe el mensaje para " + nombreDestino + ":");
+                        String mensajePrivado = in.readUTF();
+                        enviarAPersona(nombreDestino, "[" + nombre + "]: " + mensajePrivado);
                     }
-                } else {
-                    out.writeUTF("Formato no reconocido.");
-                }
+                    break;
+
+                case "3":
+                    out.writeUTF("Saliendo del chat. ¡Hasta luego!");
+                    break;
+
+                default:
+                    out.writeUTF("Opción inválida.");
+                    continue;
             }
-        } catch (IOException e) {
-            System.out.println(nombre + " se ha desconectado.");
-        } finally {
-            clientes.remove(this);
+
+            if (opcion.equals("3")) break;
         }
+
+    } catch (IOException e) {
+        System.out.println(nombre + " se ha desconectado.");
+    } finally {
+        clientes.remove(this);
+        try { in.close(); } catch (IOException e) {}
+        try { out.close(); } catch (IOException e) {}
+        enviarATodos("El cliente " + nombre + " se ha desconectado.");
     }
+}
+
+private void mostrarMenu() throws IOException {
+    out.writeUTF("\n--- MENÚ ---\n" +
+                 "1: Resolver operación matemática\n" +
+                 "2: Enviar mensaje\n" +
+                 "3: Salir\n" +
+                 "Seleccione una opción:");
+}
+
+private void mostrarSubMenuMensajes() throws IOException {
+    out.writeUTF("Clientes conectados:");
+    for (ServidorHilo c : clientes) {
+        out.writeUTF("- " + c.nombre);
+    }
+    out.writeUTF("Escribe el nombre del destinatario o escribe 'ALL' para todos:");
+}
 
     private void enviarATodos(String mensaje) {
-        for (ServidorHilo c : clientes) {
+    System.out.println("Mensaje a todos: " + mensaje); // 👈 aquí
+    for (ServidorHilo c : clientes) {
+        try {
+            c.out.writeUTF(mensaje);
+        } catch (IOException e) {}
+    }
+}
+
+private void enviarAPersona(String nombreDestino, String mensaje) {
+    boolean encontrado = false;
+    for (ServidorHilo c : clientes) {
+        if (c.nombre.equalsIgnoreCase(nombreDestino)) {
             try {
                 c.out.writeUTF(mensaje);
+                System.out.println("Mensaje privado de " + nombre + " a " + nombreDestino + ": " + mensaje); // 👈 aquí
+                encontrado = true;
             } catch (IOException e) {}
+            return;
         }
     }
-
-    private void enviarAPersona(String nombreDestino, String mensaje) {
-        for (ServidorHilo c : clientes) {
-            if (c.nombre.equalsIgnoreCase(nombreDestino)) {
-                try {
-                    c.out.writeUTF(mensaje);
-                } catch (IOException e) {}
-                return;
-            }
-        }
+    if (!encontrado) {
         try {
             out.writeUTF("No se encontró al cliente: " + nombreDestino);
         } catch (IOException e) {}
     }
+}
 
     private String resolverOperacion(String op) {
         try {
