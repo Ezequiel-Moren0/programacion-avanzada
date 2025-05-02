@@ -21,7 +21,6 @@ public class ServidorHilo extends Thread {
         this.id = contadorClientes++;
         clientes.add(this);
 
-        // Mostrar conexión en consola
         System.out.println("Nuevo cliente conectado: " + getNombreIdentificado());
         System.out.println("Clientes actualmente conectados:");
         for (ServidorHilo c : clientes) {
@@ -60,10 +59,9 @@ public class ServidorHilo extends Thread {
                             String mensajeAll = in.readUTF();
                             enviarATodos("[" + getNombreIdentificado() + "]: " + mensajeAll);
                         } else {
-                            String nombreDestino = subopcion;
-                            out.writeUTF("Escribe el mensaje para " + nombreDestino + ":");
-                            String mensajePrivado = in.readUTF();
-                            enviarAPersona(nombreDestino, "[" + getNombreIdentificado() + "]: " + mensajePrivado);
+                            out.writeUTF("Escribe el mensaje para los destinatarios (" + subopcion + "):");
+                            String mensaje = in.readUTF();
+                            enviarAMultiples(subopcion, "[" + getNombreIdentificado() + "]: " + mensaje);
                         }
                         break;
 
@@ -87,7 +85,6 @@ public class ServidorHilo extends Thread {
             try { out.close(); } catch (IOException e) {}
             enviarATodos("El cliente " + getNombreIdentificado() + " se ha desconectado.");
 
-            // Mostrar desconexión en consola
             System.out.println("Cliente desconectado: " + getNombreIdentificado());
             System.out.println("Clientes actualmente conectados:");
             for (ServidorHilo c : clientes) {
@@ -110,7 +107,7 @@ public class ServidorHilo extends Thread {
         for (ServidorHilo c : clientes) {
             out.writeUTF("- " + c.getNombreIdentificado());
         }
-        out.writeUTF("Escribe el nombre del destinatario (exacto) o escribe 'ALL' para todos:");
+        out.writeUTF("Escribe el/los nombre(s) del destinatario separado(s) por coma (ej: Lucas,Ezequiel) o escribe 'ALL':");
     }
 
     private void enviarATodos(String mensaje) {
@@ -122,23 +119,29 @@ public class ServidorHilo extends Thread {
         }
     }
 
-    private void enviarAPersona(String nombreDestino, String mensaje) {
-        boolean encontrado = false;
-        for (ServidorHilo c : clientes) {
-            if (c.nombre.equalsIgnoreCase(nombreDestino) ||
-                c.getNombreIdentificado().equalsIgnoreCase(nombreDestino)) {
-                try {
-                    c.out.writeUTF(mensaje);
-                    System.out.println("Mensaje privado de " + getNombreIdentificado() + " a " + nombreDestino + ": " + mensaje);
-                    encontrado = true;
-                    return;
-                } catch (IOException e) {}
+    private void enviarAMultiples(String nombres, String mensaje) {
+        String[] destinatarios = nombres.split(",");
+        Set<String> noEncontrados = new HashSet<>();
+
+        for (String nom : destinatarios) {
+            boolean encontrado = false;
+            for (ServidorHilo c : clientes) {
+                if (c.nombre.equalsIgnoreCase(nom.trim()) || c.getNombreIdentificado().equalsIgnoreCase(nom.trim())) {
+                    try {
+                        c.out.writeUTF(mensaje);
+                        System.out.println("Mensaje de " + getNombreIdentificado() + " a " + nom + ": " + mensaje);
+                        encontrado = true;
+                    } catch (IOException e) {}
+                }
+            }
+            if (!encontrado) {
+                noEncontrados.add(nom.trim());
             }
         }
 
-        if (!encontrado) {
+        if (!noEncontrados.isEmpty()) {
             try {
-                out.writeUTF("No se encontró al cliente: " + nombreDestino);
+                out.writeUTF("No se encontraron los siguientes destinatarios: " + String.join(", ", noEncontrados));
             } catch (IOException e) {}
         }
     }
